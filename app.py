@@ -12,8 +12,43 @@ def load_data():
 
 monthly, forecast_df = load_data()
 
+# =====================================================
+# Data Quality Check – Administrative mismatch
+# Hyderabad should be in Telangana, not Andhra Pradesh
+# =====================================================
+
+monthly["data_quality_flag"] = False
+
+mask = (
+    (monthly["district"].str.lower() == "hyderabad") &
+    (monthly["state"].str.lower() != "telangana")
+)
+
+monthly.loc[mask, "data_quality_flag"] = True
+
+dq_count = monthly["data_quality_flag"].sum()
+
+# =====================================================
+
 st.title("🇮🇳 Aadhaar Pulse – District Intelligence & Forecasting System")
 st.markdown("Interactive planning dashboard for UIDAI")
+
+# Show warning if mismatch exists
+if dq_count > 0:
+    st.warning(
+        f"⚠ Detected {dq_count} records with possible administrative mismatch "
+        f"(e.g., Hyderabad mapped outside Telangana). "
+        f"This reflects legacy coding in source UIDAI datasets."
+    )
+
+show_dq = st.checkbox("Show administrative mismatch records")
+
+if show_dq:
+    st.dataframe(
+        monthly[monthly["data_quality_flag"]][
+            ["state", "district", "month", "update_total", "service_stress_score"]
+        ]
+    )
 
 st.sidebar.header("Select Location")
 
@@ -53,7 +88,12 @@ forecast_data = forecast_df[
 
 if not forecast_data.empty:
     fig2, ax2 = plt.subplots()
-    ax2.plot(forecast_data["forecast_month"], forecast_data["predicted_update_total"], marker="o", color="orange")
+    ax2.plot(
+        forecast_data["forecast_month"],
+        forecast_data["predicted_update_total"],
+        marker="o",
+        color="orange"
+    )
     plt.xticks(rotation=45)
     st.pyplot(fig2)
 else:
